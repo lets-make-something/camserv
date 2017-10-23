@@ -1,0 +1,89 @@
+[Version]
+Signature           = "$Windows NT$"
+Class               = MusenClass
+ClassGuid           = {9E43584C-6AD9-4C1C-AA2B-04631C8A09BE}
+Provider            = %ProviderName%
+DriverVer           = 10/07/2013,7.0.0000.00001
+CatalogFile.NTx86   = androidwinusb86.cat
+CatalogFile.NTamd64 = androidwinusba64.cat
+
+[ClassInstall32]
+Addreg = Musen
+
+[Musen]
+HKR,,,0,%ClassName%
+HKR,,Icon,,-1
+
+
+[Manufacturer]
+%ProviderName% = Shinji, NTx86, NTamd64
+
+
+[Shinji.NTx86]
+
+%MusenInterface%        = USB_Install, USB\VID_0BDA&PID_2838&REV_0100&MI_00
+
+[Shinji.NTamd64]
+
+%MusenInterface%        = USB_Install, USB\VID_0BDA&PID_2838&REV_0100&MI_00
+%MusenInterface%        = USB_Install, USB\VID_0BDA&PID_2838&REV_0100&MI_01
+
+
+
+[USB_Install]
+Include = winusb.inf
+Needs   = WINUSB.NT
+
+[USB_Install.Services]
+Include     = winusb.inf
+AddService  = WinUSB,0x00000002,WinUSB_ServiceInstall
+
+[WinUSB_ServiceInstall]
+DisplayName     = %WinUSB_SvcDesc%
+ServiceType     = 1
+StartType       = 3
+ErrorControl    = 1
+ServiceBinary   = %12%\WinUSB.sys
+
+[USB_Install.Wdf]
+KmdfService = WINUSB, WinUSB_Install
+
+[WinUSB_Install]
+KmdfLibraryVersion  = 1.9
+
+[USB_Install.HW]
+AddReg  = Dev_AddReg
+
+[Dev_AddReg]
+HKR,,DeviceInterfaceGUIDs,0x10000,"{285A8776-6547-414E-A829-6F0EA5A33E67}"
+
+[USB_Install.CoInstallers]
+AddReg    = CoInstallers_AddReg
+CopyFiles = CoInstallers_CopyFiles
+
+[CoInstallers_AddReg]
+HKR,,CoInstallers32,0x00010000,"WdfCoInstaller01009.dll,WdfCoInstaller","WinUSBCoInstaller2.dll"
+
+[CoInstallers_CopyFiles]
+WinUSBCoInstaller2.dll
+WdfCoInstaller01009.dll
+
+[DestinationDirs]
+CoInstallers_CopyFiles=11
+
+[SourceDisksNames]
+1 = %DISK_NAME%,,,\i386
+2 = %DISK_NAME%,,,\amd64
+
+[SourceDisksFiles.x86]
+WinUSBCoInstaller2.dll  = 1
+WdfCoInstaller01009.dll = 1
+
+[SourceDisksFiles.amd64]
+WinUSBCoInstaller2.dll  = 2
+WdfCoInstaller01009.dll = 2
+
+[Strings]
+ProviderName                = "Shinji."
+MusenInterface          = "Shinji Musen"
+ClassName                   = "Shinji Musen"
