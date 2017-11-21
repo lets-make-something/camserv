@@ -3,7 +3,7 @@
 #include <RF24.h>
 RF24 radio(14, 15); // CE, CSN
 const byte address[6] = "00001";
-
+int sleep=0;
 struct Wheel{
   int pattern_step;
   int forward;
@@ -55,9 +55,28 @@ struct Wheel{
     }
   }
 
+  void throttle(int speed){
+    if(speed>10){
+      speed=10;
+    }else if(speed<-10){
+      speed=-10;
+    }
+    if(0==speed){
+      wait_reset=10;
+      forward=0;
+    }else if(0<speed){
+      wait_reset=10-speed;
+      forward=1;
+    }else{
+      wait_reset=10+speed;
+      forward=-1;
+    }
+  }
+
   void loop(){
     wait--;
     if(wait<=0){
+#if 1
       const char pattern[8][4]={
         {1,0,0,1},
         {1,0,0,0},
@@ -68,6 +87,18 @@ struct Wheel{
         {0,0,1,1},
         {0,0,0,1},
       };
+#else
+      const char pattern[8][4]={
+        {1,0,0,0},
+        {0,1,0,0},
+        {0,0,1,0},
+        {0,0,0,1},
+        {1,0,0,0},
+        {0,1,0,0},
+        {0,0,1,0},
+        {0,0,0,1},
+      };
+#endif
       digitalWrite(this->assign[0],pattern[pattern_step][0]?HIGH:LOW);
       digitalWrite(this->assign[1],pattern[pattern_step][1]?HIGH:LOW);
       digitalWrite(this->assign[2],pattern[pattern_step][2]?HIGH:LOW);
@@ -91,6 +122,7 @@ struct Wheel{
 Wheel wr,wl;
 
 void setup() {
+  sleep=0;
   // put your setup code here, to run once:
   Serial.begin(9600);
   wr.setup(2,3,4,5);
@@ -102,7 +134,41 @@ void setup() {
   radio.startListening();
 }
 
+void command(char *cmd){
+  int inputchar = cmd[0];
+  int bs=sleep;
+  sleep=0;
+  if('q'==inputchar){
+    wr.throttle(10);
+  }else if('w'==inputchar){
+    wl.throttle(-10);
+  }else if('a'==inputchar){
+    wr.throttle(0);
+  }else if('s'==inputchar){
+    wl.throttle(0);
+  }else if('z'==inputchar){
+    wr.throttle(-10);
+  }else if('x'==inputchar){
+    wl.throttle(10);
+  }else if('o'==inputchar){
+    wr.front();
+  }else if('p'==inputchar){
+    wr.back();
+  }else if('k'==inputchar){
+    wl.front();
+  }else if('l'==inputchar){
+    wl.back();
+  }else{
+    sleep=bs;
+  }
+}
+
 void loop() {
+  sleep++;
+  if(1000<sleep){
+    wr.throttle(0);
+    wl.throttle(0);
+  }
 
   wr.loop();
   wl.loop();
@@ -111,18 +177,13 @@ void loop() {
     char text[32] = "";
     radio.read(&text, sizeof(text));
     Serial.println(text);
-    int inputchar = text[0];
-    if('o'==inputchar){
-     wr.front();
-    }
-    if('p'==inputchar){
-      wr.back();
-    }
-    if('k'==inputchar){
-      wl.front();
-    }
-    if('l'==inputchar){
-      wl.back();
-    }
-  }  
+    command(text);
+  }
+  int input;
+  input = Serial.read();
+  if(input != -1 ){
+    char text[] = " \n";
+    text[0]=input;
+    command(text);
+  }
 }
