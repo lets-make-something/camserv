@@ -1,0 +1,81 @@
+<script>
+setInterval(()=>{
+  document.getElementById("main_img").setAttribute("src","capture.png?"+(Math.random()));
+  document.getElementById("step0").setAttribute("src","mono_step0.png?"+(Math.random()));
+  [1,2,3,4].forEach((a)=>{
+    document.getElementById("step"+a).setAttribute("src","color_step"+a+".png?"+(Math.random()));
+  });
+  [0,1,2,3,4,5,6,7].forEach((a)=>{
+    document.getElementById("mat"+a).setAttribute("src","mat"+a+".png?"+(Math.random()));
+  });
+}, 5000);
+
+function invoke(path,callback) {
+  var xhr = new XMLHttpRequest();
+  xhr.open("GET", path, true);
+  xhr.onload = (e) => {
+    if (xhr.readyState === 4) {
+      if (xhr.status === 200) {
+        console.log(xhr.responseText);
+        callback(xhr.responseText);
+      } else {
+        console.error(xhr.statusText);
+      }
+    }
+  };
+  xhr.onerror = (e) => {
+    console.error(xhr.statusText);
+  };
+  xhr.send(null);
+}
+function button(elem) {
+  this.name = elem.attributes.value.value;
+  this.class = elem.attributes.class.value;
+}
+button.prototype.do = function () {
+  console.log(this.name);
+  invoke(this.name, (res) => {
+    document.getElementById(this.class).innerText = res;
+  });
+}
+window.onload = function () {
+  const inputs = document.getElementsByTagName("input");
+  for (var i = 0; i < inputs.length; i++) {
+    let btn = new button(inputs[i]);
+    inputs[i].onclick = () => { btn.do() };
+  }
+}
+</script>
+
+<html>
+<body>
+  <table border="2">
+    <tr>
+      <td>
+        <input class="threshold" type="button" value="/set/markpos/threshold_plus">
+        <input class="threshold" type="button" value="/set/markpos/threshold_minus">
+        <p id="threshold"></p>
+      </td>
+    </tr>
+    <tr><td colspan="16"><img id="main_img" src="mark.png"></td>
+    </tr>
+    <tr>
+      <td><img id="step0"></td>
+      <td><img id="step1"></td>
+      <td><img id="step2"></td>
+      <td><img id="step3"></td>
+      <td><img id="step4"></td>
+    </tr>
+    <tr>
+      <td><img id="mat0" width="64" height="64"></td>
+      <td><img id="mat1" width="64" height="64"></td>
+      <td><img id="mat2" width="64" height="64"></td>
+      <td><img id="mat3" width="64" height="64"></td>
+      <td><img id="mat4" width="64" height="64"></td>
+      <td><img id="mat5" width="64" height="64"></td>
+      <td><img id="mat6" width="64" height="64"></td>
+      <td><img id="mat7" width="64" height="64"></td>
+    </tr>
+  </table>
+</body>
+</html>

@@ -90,6 +90,7 @@ unsigned char*WebcamImpl::Buffer()
     for (int y = 0; y < height; y++){
       memcpy(buf + width*y * 3, temp + width*(height - y) * 3, width * 3);
     }
+    delete[]temp;
   }
   return buf;
 }

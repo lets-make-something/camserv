@@ -1,5 +1,6 @@
 #include <uv.h>
 #include <memory.h>
+#include <filesystem>
 #include <string>
 #include <map>
 #include <iostream>
@@ -16,10 +17,14 @@
 #include "png/png.h"
 #include "markpos.h"
 
+#include <cereal/cereal.hpp>
+#include <cereal/archives/json.hpp>
+#include <cereal/types/vector.hpp>
 
 const int httpd_port = 80;
 
 using namespace std;
+namespace fs = std::experimental::filesystem;
 
 uv_loop_t uv;
 uv_tcp_t httpd;
@@ -178,10 +183,50 @@ struct StreamContext {
   }
 };
 
+namespace Marker {
+#define B 0,0,0
+#define W 255,255,255
+
+  const uint8_t mark1[64*3] = {
+    B,B,B,B,B,B,B,B,
+    B,W,W,W,B,B,B,B,
+    B,W,W,W,B,B,B,B,
+    B,W,W,W,B,B,B,B,
+    B,W,W,W,W,W,W,B,
+    B,W,W,W,W,W,W,B,
+    B,W,W,W,W,W,W,B,
+    B,B,B,B,B,B,B,B,
+  };
+
+#undef B
+#undef W
+
+  float match(const uint8_t* rgb, const uint8_t* pattern) {
+    float dot=0;
+    for (int i = 0; i < 64 * 3; i++) {
+      dot += (rgb[i] * pattern[i]) / (float)(255 * 255) / 3;
+    }
+    return dot;
+  }
+}
+
+namespace Field {
+  int camera_width;
+  int camera_height;
+
+  struct Node {
+    float x, y;
+    float dir;
+  };
+
+  vector<Node> nodes;
+}
+
 vector<uint8_t> mark_rgb;
 vector<ColorMatrix> cmat;
 int main()
 {
+  Field::nodes.resize(8);
   webcam = Webcam::Create();
   if (webcam){
     webcam->Start();
@@ -214,6 +259,8 @@ int main()
     {
       int w = webcam->Width();
       int h = webcam->Height();
+      Field::camera_width = w;
+      Field::camera_height = h;
       auto buffer = webcam->Buffer();
       mark_rgb.resize(w*h * 3);
       for (int y = 0; y < h; y++) {
@@ -225,14 +272,30 @@ int main()
       }
       
       const auto hits = GetMark(mark_rgb.data(), w, h);
+      vector<QuadArea> qa;
       cmat.clear();
       for (auto &p : hits) {
-        cmat.push_back(GetMatrix(buffer, w, h, p));
+        for (int i = 0; i < 4; i++) {
+          QuadArea q;
+          for (int j = 0; j < 4; j++) {
+            q.vertex.push_back(p.vertex[(i + j) % 4]);
+          }
+          qa.push_back(q);
+        }
+      }
+      for (auto &p : qa) {
+        auto m = GetMatrix(buffer, w, h, p);
+        float f = Marker::match(m.raw.data(), Marker::mark1);
+        if (20 < f) {
+          Field::nodes[0].x = (p.vertex[0].x + p.vertex[1].x + p.vertex[2].x + p.vertex[3].x) / 4;
+          Field::nodes[0].y = (p.vertex[0].y + p.vertex[1].y + p.vertex[2].y + p.vertex[3].y) / 4;
+          Field::nodes[0].dir = atan2f((p.vertex[3].y - p.vertex[2].y),(p.vertex[3].x - p.vertex[0].y));
+          cmat.push_back(m);
+          cout << f << std::endl;
+        }
       }
 
-
       cout << "hits:" << hits.size() << endl;
-
     }
   }, 1000, 1000);
 
@@ -256,7 +319,20 @@ int main()
     return -1;
   }
 
+  ::get.push_back({ regex("/status"), [](const Request &req) {
+    return webcam ? std::to_string(webcam->Width()) : "-1";
+  } });
+
   //webcam
+  ::get.push_back({ regex(R"(/set/markpos/threshold_plus)"), [](const Request &req)->HttpBody {
+    if(markpos_settings.bin_thres<90) markpos_settings.bin_thres += 10;
+    return std::to_string(markpos_settings.bin_thres);
+  } });
+
+  ::get.push_back({ regex(R"(/set/markpos/threshold_minus)"), [](const Request &req)->HttpBody {
+    if (markpos_settings.bin_thres>10) markpos_settings.bin_thres -= 10;
+    return std::to_string(markpos_settings.bin_thres);
+  } });
 
   ::get.push_back({ regex("/width"), [](const Request &req){
     return webcam ? std::to_string(webcam->Width()) : "-1";
@@ -397,45 +473,29 @@ int main()
     return b;
   } });
 
-  ::get.push_back({ regex("^/$"), [](const Request &req){
-    std::stringstream ss;
-    ss <<
-      R"(<html>
-<script>
-setInterval(()=>{
-  document.getElementById("main_img").setAttribute("src","capture.png?"+(Math.random()));
-  document.getElementById("step0").setAttribute("src","mono_step0.png?"+(Math.random()));
-  [1,2,3,4].forEach((a)=>{
-    document.getElementById("step"+a).setAttribute("src","color_step"+a+".png?"+(Math.random()));
-  });
-  [0,1,2,3,4,5,6,7].forEach((a)=>{
-    document.getElementById("mat"+a).setAttribute("src","mat"+a+".png?"+(Math.random()));
-  });
-},5000);
-</script>
-<body>
-<table border="2">
-<tr><td colspan="16"><img id="main_img" src="mark.png"></td></tr>
-<tr>
-<td><img id="step0"></td>
-<td><img id="step1"></td>
-<td><img id="step2"></td>
-<td><img id="step3"></td>
-<td><img id="step4"></td>
-</tr>
-<tr>
-<td><img id="mat0" width="64" height="64"></td>
-<td><img id="mat1" width="64" height="64"></td>
-<td><img id="mat2" width="64" height="64"></td>
-<td><img id="mat3" width="64" height="64"></td>
-<td><img id="mat4" width="64" height="64"></td>
-<td><img id="mat5" width="64" height="64"></td>
-<td><img id="mat6" width="64" height="64"></td>
-<td><img id="mat7" width="64" height="64"></td>
-</tr>
-</table>
-</body>)";
-    return ss.str();
+  //load static files
+  std::map<std::string, std::vector<uint8_t>> files;
+  for (auto & p : fs::directory_iterator("www"))
+  {
+    std::string name = p.path().string().c_str() + 4;
+    std::string path = "^/";
+    path += name;
+    path += "$";
+    if (FILE *f = fopen(p.path().string().c_str(), "rb")) {
+      fseek(f, 0, SEEK_END);
+      int len = (int)ftell(f);
+      fseek(f, 0, SEEK_SET);
+      files[name].resize(len);
+      fread(files[name].data(), 1, len, f);
+      fclose(f);
+    }
+
+    ::get.push_back({ regex(path), [&,name](const Request &req) {
+      return files[name];
+    } });
+  }
+  ::get.push_back({ regex("^/$"), [&](const Request &req){
+    return files["index.html"];
   } });
 
   uv_run(&uv, UV_RUN_DEFAULT);

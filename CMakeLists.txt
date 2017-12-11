@@ -5,6 +5,7 @@ project(camserv)
 include_directories(.
 libuv/include
 zlib/include
+cereal/include
 #opencv/include
 #opencv/modules/aruco/include
 #opencv/modules/core/include
@@ -44,6 +45,7 @@ endif()
 add_subdirectory(libuv)
 add_subdirectory(zlib)
 add_subdirectory(drivers)
+#add_subdirectory(cereal)
 
 add_library(markpos
   markpos.cc
@@ -67,3 +69,4 @@ add_executable(camserv
 )
 
 target_link_libraries(camserv libuv markpos zlib webcam)
+set_target_properties(camserv PROPERTIES VS_DEBUGGER_WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}")

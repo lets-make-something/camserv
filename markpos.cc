@@ -8,6 +8,9 @@
 #include <iostream>
 
 std::vector<Progress> progress;
+extern MarkposSettings markpos_settings = {
+  75
+};
 
 static void toMono(const uint8_t *rgc, int width, int height, uint8_t *momo) {
 
@@ -158,7 +161,7 @@ std::vector<QuadArea> GetMark(uint8_t * rgb, int width, int height)
   // RGB ÇîíçïÇ…Ç∑ÇÈ
 
   unsigned char *c = mono;
-  unsigned char *pixel = rgb;
+  //unsigned char *pixel = rgb;
   for (int y = 0; y < height; y+=scale)
   {
     for (int x = 0; x < width; x+=scale)
@@ -179,12 +182,68 @@ std::vector<QuadArea> GetMark(uint8_t * rgb, int width, int height)
   }
   progress.clear();
 
+  // filter
+#if 0
+  memset(mono_tmp, 0, cw*ch);
+  {
+    for (int y = 0; y < ch; y++)
+    {
+      for (int x = 0; x < cw; x++)
+      {
+        uint32_t histgram[256];
+        memset(histgram, 0, sizeof(histgram));
+        int p = 0;
+        for (int v = y-8<0?0: y - 8; v < (y+8>=ch?ch:y + 8); v++) {
+          for (int u = x - 8<0 ? 0 : x - 8; u < (x + 8 >= cw ? cw : x + 8); u++) {
+            histgram[mono[v*cw + u]]++;
+            p++;
+          }
+        }
+        int pixel = 0;
+        for (int i = 0; i < 256; i++) {
+          pixel += histgram[i];
+          if (pixel > mono[y*cw + x]/255.0f*p) {
+            mono_tmp[y*cw+x] = i;
+            goto hit;
+          }
+        }
+        mono_tmp[y*cw + x] = 255;
+      hit:;
+      }
+    }
+  }
+  memcpy(mono, mono_tmp, cw*ch);
+#endif
+  
   progress.resize(progress.size() + 1);
-  progress.back().mono.assign(mono, mono + cw*ch);
+  progress.back().mono.assign(mono, mono + cw * ch);
   progress.back().width = cw;
   progress.back().height = ch;
 
   // ìÒílâªÇµÇƒÅAçïÇ¡Ç€Ç¢Ç∆Ç±ÇÎÇæÇØíäèo
+
+  int threshold;
+  {
+    uint32_t histgram[256];
+    memset(histgram, 0, sizeof(histgram));
+
+    c = mono;
+    for (int y = 0; y < ch; y++)
+    {
+      for (int x = 0; x < cw; x++)
+      {
+        histgram[*c++]++;
+      }
+    }
+    int pixel = 0;
+    for (int i = 0; i < 256; i++) {
+      pixel += histgram[i];
+      if (pixel > cw*ch / 100 * markpos_settings.bin_thres) {
+        threshold = i;
+        break;
+      }
+    }
+  }
 
   c = mono;
   for (int y = 0; y < ch; y++)
@@ -195,7 +254,7 @@ std::vector<QuadArea> GetMark(uint8_t * rgb, int width, int height)
         *c = 0;
       }
       else {
-        *c = *c < 64 ? 1 :0;
+        *c = *c < threshold ? 1 :0;
       }
       c++;
     }
@@ -380,7 +439,7 @@ ColorMatrix GetMatrix(uint8_t * rgb, int width, int height, QuadArea quad)
     float x, y;
   };
   ColorMatrix cm;
-  float scale = 16;
+  float scale = 8;
   cm.mat.resize(scale);
   for (int y = 0; y < scale; y++) {
     Posf sy = {
@@ -392,6 +451,7 @@ ColorMatrix GetMatrix(uint8_t * rgb, int width, int height, QuadArea quad)
       quad.vertex[3].y + (float)(quad.vertex[2].y - quad.vertex[3].y) / (scale - 1)*y
     };
     cm.mat[y].resize(scale);
+    cm.raw.resize(3*scale*scale);
     for (int x = 0; x < scale; x++) {
       Posf p = {
         sy.x + (ey.x - sy.x) / (scale - 1)*x,
@@ -402,6 +462,9 @@ ColorMatrix GetMatrix(uint8_t * rgb, int width, int height, QuadArea quad)
       cm.mat[y][x].r = rgb[(px + py*width) * 3 + 0];
       cm.mat[y][x].g = rgb[(px + py*width) * 3 + 1];
       cm.mat[y][x].b = rgb[(px + py*width) * 3 + 2];
+      cm.raw[(y*scale + x) * 3 + 0] = rgb[(px + py * width) * 3 + 0];
+      cm.raw[(y*scale + x) * 3 + 1] = rgb[(px + py * width) * 3 + 1];
+      cm.raw[(y*scale + x) * 3 + 2] = rgb[(px + py * width) * 3 + 2];
     }
   }
   return cm;

@@ -13,6 +13,7 @@ struct ColorMatrix {
     uint8_t r, g, b;
   };
   std::vector<std::vector<RGB> > mat;
+  std::vector<uint8_t> raw;
 };
 
 std::vector<QuadArea> GetMark(uint8_t *rgb, int width, int height);
@@ -22,4 +23,10 @@ struct Progress {
   std::vector<uint8_t> mono;
   int width,height;
 };
+
 extern std::vector<Progress> progress;
+
+struct MarkposSettings {
+  int bin_thres;
+};
+extern MarkposSettings markpos_settings;

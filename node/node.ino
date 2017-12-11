@@ -164,7 +164,7 @@ void command(char *cmd){
 }
 
 void loop() {
-  sleep++;
+//  sleep++;
   if(1000<sleep){
     wr.throttle(0);
     wl.throttle(0);
