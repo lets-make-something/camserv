@@ -1,16 +1,6 @@
 <script>
-setInterval(()=>{
-  document.getElementById("main_img").setAttribute("src","capture.png?"+(Math.random()));
-  document.getElementById("step0").setAttribute("src","mono_step0.png?"+(Math.random()));
-  [1,2,3,4].forEach((a)=>{
-    document.getElementById("step"+a).setAttribute("src","color_step"+a+".png?"+(Math.random()));
-  });
-  [0,1,2,3,4,5,6,7].forEach((a)=>{
-    document.getElementById("mat"+a).setAttribute("src","mat"+a+".png?"+(Math.random()));
-  });
-}, 5000);
 
-function invoke(path,callback) {
+  function invoke(path, callback) {
   var xhr = new XMLHttpRequest();
   xhr.open("GET", path, true);
   xhr.onload = (e) => {
@@ -44,7 +34,24 @@ window.onload = function () {
     let btn = new button(inputs[i]);
     inputs[i].onclick = () => { btn.do() };
   }
+
+  setInterval(() => invoke("/status", res => {
+    let dat = JSON.parse(res);
+    document.getElementById("status").innerText = JSON.stringify(dat, 0, 2);
+  }), 1000);
+
+  setInterval(() => {
+    document.getElementById("main_img").setAttribute("src", "capture.png?" + (Math.random()));
+    document.getElementById("step0").setAttribute("src", "mono_step0.png?" + (Math.random()));
+    [1, 2, 3, 4].forEach((a) => {
+      document.getElementById("step" + a).setAttribute("src", "color_step" + a + ".png?" + (Math.random()));
+    });
+    [0, 1, 2, 3, 4, 5, 6, 7].forEach((a) => {
+      document.getElementById("mat" + a).setAttribute("src", "mat" + a + ".png?" + (Math.random()));
+    });
+  }, 5000);
 }
+
 </script>
 
 <html>
@@ -55,6 +62,9 @@ window.onload = function () {
         <input class="threshold" type="button" value="/set/markpos/threshold_plus">
         <input class="threshold" type="button" value="/set/markpos/threshold_minus">
         <p id="threshold"></p>
+      </td>
+      <td>
+        <pre id="status"></pre>
       </td>
     </tr>
     <tr><td colspan="16"><img id="main_img" src="mark.png"></td>

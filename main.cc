@@ -25,6 +25,17 @@ const int httpd_port = 80;
 
 using namespace std;
 namespace fs = std::experimental::filesystem;
+using std::chrono::system_clock;
+
+struct GlobalStatus {
+  int last_process_time;
+
+  template<class Archive>
+  void serialize(Archive & archive)
+  {
+    archive(CEREAL_NVP(last_process_time));
+  }
+}gs;
 
 uv_loop_t uv;
 uv_tcp_t httpd;
@@ -255,6 +266,7 @@ int main()
   //1sec timer
   uv_timer_init(&uv, &per_sec);
   uv_timer_start(&per_sec, [](uv_timer_t*timer) {
+    auto start = system_clock::now();
     if (webcam)
     {
       int w = webcam->Width();
@@ -294,6 +306,8 @@ int main()
           cout << f << std::endl;
         }
       }
+      auto end = system_clock::now();
+      gs.last_process_time= std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
 
       cout << "hits:" << hits.size() << endl;
     }
@@ -320,17 +334,22 @@ int main()
   }
 
   ::get.push_back({ regex("/status"), [](const Request &req) {
-    return webcam ? std::to_string(webcam->Width()) : "-1";
+    std::stringstream ss;
+    {
+      cereal::JSONOutputArchive o(ss);
+      o(cereal::make_nvp("gs", gs));
+    }
+    return ss.str();
   } });
 
   //webcam
   ::get.push_back({ regex(R"(/set/markpos/threshold_plus)"), [](const Request &req)->HttpBody {
-    if(markpos_settings.bin_thres<90) markpos_settings.bin_thres += 10;
+    if(markpos_settings.bin_thres<90) markpos_settings.bin_thres += 5;
     return std::to_string(markpos_settings.bin_thres);
   } });
 
   ::get.push_back({ regex(R"(/set/markpos/threshold_minus)"), [](const Request &req)->HttpBody {
-    if (markpos_settings.bin_thres>10) markpos_settings.bin_thres -= 10;
+    if (markpos_settings.bin_thres>10) markpos_settings.bin_thres -= 5;
     return std::to_string(markpos_settings.bin_thres);
   } });
 
