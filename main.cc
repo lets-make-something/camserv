@@ -27,12 +27,30 @@ using namespace std;
 namespace fs = std::experimental::filesystem;
 using std::chrono::system_clock;
 
+namespace Field {
+  int camera_width;
+  int camera_height;
+}
+
 struct GlobalStatus {
   int last_process_time;
+  struct Node {
+    float x, y;
+    float dir;
+
+    template<class Archive>
+    void serialize(Archive & archive)
+    {
+      archive(CEREAL_NVP(x), CEREAL_NVP(y), CEREAL_NVP(dir) );
+    }
+  };
+
+  vector<Node> nodes;
 
   template<class Archive>
   void serialize(Archive & archive)
   {
+    archive(CEREAL_NVP(nodes));
     archive(CEREAL_NVP(last_process_time));
   }
 }gs;
@@ -221,23 +239,11 @@ namespace Marker {
   }
 }
 
-namespace Field {
-  int camera_width;
-  int camera_height;
-
-  struct Node {
-    float x, y;
-    float dir;
-  };
-
-  vector<Node> nodes;
-}
-
 vector<uint8_t> mark_rgb;
 vector<ColorMatrix> cmat;
 int main()
 {
-  Field::nodes.resize(8);
+  gs.nodes.resize(8);
   webcam = Webcam::Create();
   if (webcam){
     webcam->Start();
@@ -299,9 +305,11 @@ int main()
         auto m = GetMatrix(buffer, w, h, p);
         float f = Marker::match(m.raw.data(), Marker::mark1);
         if (20 < f) {
-          Field::nodes[0].x = (p.vertex[0].x + p.vertex[1].x + p.vertex[2].x + p.vertex[3].x) / 4;
-          Field::nodes[0].y = (p.vertex[0].y + p.vertex[1].y + p.vertex[2].y + p.vertex[3].y) / 4;
-          Field::nodes[0].dir = atan2f((p.vertex[3].y - p.vertex[2].y),(p.vertex[3].x - p.vertex[0].y));
+          gs.nodes[0].x = (p.vertex[0].x + p.vertex[1].x + p.vertex[2].x + p.vertex[3].x) / 4;
+          gs.nodes[0].y = (p.vertex[0].y + p.vertex[1].y + p.vertex[2].y + p.vertex[3].y) / 4;
+          float xx = (p.vertex[0].x + p.vertex[1].x) / 2 - (p.vertex[2].x + p.vertex[3].x) / 2;
+          float yy = (p.vertex[0].y + p.vertex[1].y) / 2 - (p.vertex[2].y + p.vertex[3].y) / 2;
+          gs.nodes[0].dir = atan2f(yy, xx);
           cmat.push_back(m);
           cout << f << std::endl;
         }
